@@ -234,7 +234,7 @@ export default function VoiceAgent() {
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
       // Connect to cloudflared tunnel (valid SSL) → Ubuntu relay → Deepgram
-      const ws = new WebSocket('wss://univ-downloading-jungle-located.trycloudflare.com');
+      const ws = new WebSocket('wss://leave-recorded-vernon-restructuring.trycloudflare.com');
       
       ws.binaryType = 'arraybuffer';
 
