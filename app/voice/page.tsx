@@ -203,8 +203,8 @@ export default function VoiceAgent() {
       setError(null);
       setIsConnecting(true);
       
-      // Connect directly to your Ubuntu server
-      const wsUrl = 'ws://194.195.215.135:8081';  // Using different port for WebSocket
+      // Connect to secure WebSocket on Ubuntu server
+      const wsUrl = 'wss://194.195.215.135:8000';  // Using different port for WebSocket
       
       addMessage('system', 'Connecting to OpenClaw Voice...');
       
