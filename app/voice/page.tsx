@@ -139,6 +139,7 @@ export default function VoiceAgent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [apiKey, setApiKey] = useState<string>('');
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -154,6 +155,23 @@ export default function VoiceAgent() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const addMessage = useCallback((role: Message['role'], content: string) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { role, content, timestamp }]);
+  }, []);
+
+  // Get Deepgram API key from token endpoint
+  useEffect(() => {
+    fetch('/api/deepgram/token')
+      .then(res => res.json())
+      .then(data => {
+        if (data.token) {
+          setApiKey(data.token);
+        }
+      })
+      .catch(err => console.error('Failed to get token:', err));
+  }, []);
 
   const flushAudioQueue = useCallback(() => {
     const queue = audioQueueRef.current;
@@ -192,31 +210,53 @@ export default function VoiceAgent() {
     nextPlayTimeRef.current = startAt + buf.duration;
   }, []);
 
-  const addMessage = useCallback((role: Message['role'], content: string) => {
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setMessages(prev => [...prev, { role, content, timestamp }]);
-  }, []);
-
-  // Connect directly to Ubuntu server WebSocket
+  // Connect to Deepgram Voice Agent API directly
   const connect = useCallback(async () => {
+    if (!apiKey) {
+      setError('API key not available');
+      return;
+    }
+
     try {
       setError(null);
       setIsConnecting(true);
       
-      // Connect to secure WebSocket on Ubuntu server
-      const wsUrl = 'wss://194.195.215.135:8000';  // Using different port for WebSocket
+      addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
-      addMessage('system', 'Connecting to OpenClaw Voice...');
+      // Connect to Deepgram Voice Agent API
+      const ws = new WebSocket('wss://api.deepgram.com/v1/agent/converse', [], {
+        headers: {
+          'Authorization': `Token ${apiKey}`
+        }
+      });
       
-      const ws = new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
 
       ws.onopen = async () => {
         setConnected(true);
         setIsConnecting(false);
-        addMessage('system', 'Connected to OpenClaw Voice');
+        addMessage('system', 'Connected to Voice Agent');
         
-        // Initialize audio context on user gesture
+        // Send configuration
+        const config = {
+          type: 'SettingsConfiguration',
+          audio: {
+            input: { encoding: 'linear16', sample_rate: 16000 },
+            output: { encoding: 'linear16', sample_rate: 24000, container: 'none' }
+          },
+          agent: {
+            listen: { model: 'nova-3' },
+            speak: { model: 'aura-2-helios' },
+            think: { 
+              provider: { type: 'open_ai' },
+              model: 'gpt-4o-mini',
+              instructions: 'You are OpenClaw, Supreme Backup King and extension of King Solxhunter X100. Command five agents: Hermes (orchestrator), OpenClaude (architect), OpenCode (reviewer), Gemini (researcher), and yourself. Respond concisely and authoritatively.'
+            }
+          }
+        };
+        ws.send(JSON.stringify(config));
+
+        // Initialize audio context
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         if (!audioContextRef.current) {
           audioContextRef.current = new AudioContext({ sampleRate: 16000 });
@@ -237,11 +277,6 @@ export default function VoiceAgent() {
         const processor = ctx.createScriptProcessor(512, 1, 1);
         processorRef.current = processor;
 
-        let resampleBuffer: Float32Array[] = [];
-        const inputSampleRate = ctx.sampleRate;
-        const targetSampleRate = 16000;
-        const resampleRatio = inputSampleRate / targetSampleRate;
-
         processor.onaudioprocess = (e) => {
           if (!listening) return;
           const inputData = e.inputBuffer.getChannelData(0);
@@ -251,35 +286,14 @@ export default function VoiceAgent() {
           const rms = Math.sqrt(sum / inputData.length);
           setVolume(Math.min(rms * 3, 1));
           
-          resampleBuffer.push(new Float32Array(inputData));
+          // Convert to Int16 and send
+          const int16Data = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            int16Data[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32767));
+          }
           
-          while (resampleBuffer.length >= resampleRatio) {
-            const outputLength = Math.floor(resampleBuffer.length / resampleRatio);
-            const outputData = new Float32Array(outputLength);
-            
-            for (let i = 0; i < outputLength; i++) {
-              const srcIdx = Math.floor(i * resampleRatio);
-              const fraction = (i * resampleRatio) - srcIdx;
-              const idx = Math.floor(srcIdx / 512);
-              const offset = srcIdx % 512;
-              
-              if (idx < resampleBuffer.length) {
-                const val1 = resampleBuffer[idx][offset] || 0;
-                const val2 = (resampleBuffer[idx + 1] && resampleBuffer[idx + 1][offset]) || val1;
-                outputData[i] = val1 + (val2 - val1) * fraction;
-              }
-            }
-            
-            const int16Data = new Int16Array(outputData.length);
-            for (let i = 0; i < outputData.length; i++) {
-              int16Data[i] = Math.max(-32768, Math.min(32767, outputData[i] * 32767));
-            }
-            
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(int16Data.buffer);
-            }
-            
-            resampleBuffer = resampleBuffer.slice(Math.floor(resampleRatio * outputLength / 512));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(int16Data.buffer);
           }
         };
 
@@ -294,19 +308,24 @@ export default function VoiceAgent() {
         if (typeof event.data === 'string') {
           try {
             const msg = JSON.parse(event.data);
-            if (msg.type === 'transcript') {
-              addMessage('user', msg.text);
-            } else if (msg.type === 'response') {
-              addMessage('assistant', msg.text);
+            
+            if (msg.type === 'UserTranscript') {
+              addMessage('user', msg.content);
+            } else if (msg.type === 'AgentTranscript') {
+              addMessage('assistant', msg.content);
               setSpeaking(true);
-              setTimeout(() => setSpeaking(false), 3000);
-            } else if (msg.type === 'error') {
+            } else if (msg.type === 'AgentStartedSpeaking') {
+              setSpeaking(true);
+            } else if (msg.type === 'AgentFinishedSpeaking') {
+              setSpeaking(false);
+            } else if (msg.type === 'Error') {
               addMessage('system', `Error: ${msg.message}`);
             }
           } catch (e) {
-            // Ignore non-JSON messages
+            console.log('Text message:', event.data);
           }
         } else if (event.data instanceof ArrayBuffer) {
+          // Audio data from agent
           const int16Data = new Int16Array(event.data);
           audioQueueRef.current.push(int16Data);
           
@@ -321,7 +340,7 @@ export default function VoiceAgent() {
 
       ws.onerror = (err) => {
         console.error('WebSocket error:', err);
-        setError('Connection error. Check server status.');
+        setError('Connection error to Deepgram');
         setIsConnecting(false);
         addMessage('system', 'Connection error');
       };
@@ -329,19 +348,17 @@ export default function VoiceAgent() {
       ws.onclose = () => {
         setConnected(false);
         setListening(false);
-        setIsConnecting(false);
         setSpeaking(false);
+        setIsConnecting(false);
         addMessage('system', 'Disconnected');
         
         // Cleanup
         processorRef.current?.disconnect();
         mediaStreamRef.current?.getTracks().forEach(t => t.stop());
-        playbackContextRef.current?.close();
         
         audioContextRef.current = null;
         processorRef.current = null;
         mediaStreamRef.current = null;
-        playbackContextRef.current = null;
       };
 
       wsRef.current = ws;
@@ -352,7 +369,7 @@ export default function VoiceAgent() {
       setIsConnecting(false);
       addMessage('system', `Error: ${err.message}`);
     }
-  }, [addMessage, flushAudioQueue, listening]);
+  }, [addMessage, flushAudioQueue, listening, apiKey]);
 
   const disconnect = useCallback(() => {
     wsRef.current?.close();
@@ -433,8 +450,8 @@ export default function VoiceAgent() {
         <div className="flex justify-center mb-8">
           <motion.button
             onClick={connected ? disconnect : connect}
-            disabled={isConnecting}
-            className="relative px-8 py-4 rounded-full font-medium text-sm uppercase tracking-wider"
+            disabled={isConnecting || !apiKey}
+            className="relative px-8 py-4 rounded-full font-medium text-sm uppercase tracking-wider disabled:opacity-50"
             style={{
               background: connected 
                 ? 'rgba(239,68,68,0.9)' 
@@ -464,7 +481,7 @@ export default function VoiceAgent() {
             ) : (
               <span className="flex items-center gap-2">
                 <Mic className="w-4 h-4" />
-                Connect to King
+                {!apiKey ? 'Loading...' : 'Connect to King'}
               </span>
             )}
           </motion.button>
