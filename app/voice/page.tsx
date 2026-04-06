@@ -415,7 +415,7 @@ export default function VoiceAgent() {
         <p className="text-amber-200 text-sm">
           ⚠️ FIRST TIME? Click 
           <a 
-            href="https://194.195.215.135:8000" 
+            href="https://leave-recorded-vernon-restructuring.trycloudflare.com" 
             target="_blank" 
             rel="noopener noreferrer"
             className="underline font-bold mx-1 hover:text-amber-100"
