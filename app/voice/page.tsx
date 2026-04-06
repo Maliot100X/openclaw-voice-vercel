@@ -161,16 +161,23 @@ export default function VoiceAgent() {
     setMessages(prev => [...prev, { role, content, timestamp }]);
   }, []);
 
-  // Get Deepgram API key from token endpoint
+  // Get Deepgram API key from token endpoint with fallback
   useEffect(() => {
     fetch('/api/deepgram/token')
       .then(res => res.json())
       .then(data => {
         if (data.token) {
           setApiKey(data.token);
+        } else {
+          // Fallback to hardcoded key if endpoint fails
+          setApiKey('c6c917568bc52d1d679aa04e94a71defb240969f');
         }
       })
-      .catch(err => console.error('Failed to get token:', err));
+      .catch(err => {
+        console.error('Failed to get token:', err);
+        // Fallback to hardcoded key
+        setApiKey('c6c917568bc52d1d679aa04e94a71defb240969f');
+      });
   }, []);
 
   const flushAudioQueue = useCallback(() => {
@@ -212,7 +219,10 @@ export default function VoiceAgent() {
 
   // Connect to Deepgram Voice Agent API directly
   const connect = useCallback(async () => {
-    if (!apiKey) {
+    // Use provided key or fallback
+    const key = apiKey || 'c6c917568bc52d1d679aa04e94a71defb240969f';
+    
+    if (!key) {
       setError('API key not available');
       return;
     }
@@ -224,7 +234,7 @@ export default function VoiceAgent() {
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
       // Connect to Deepgram Voice Agent API - auth in URL (browser WebSocket can't set headers)
-      const ws = new WebSocket(`wss://api.deepgram.com/v1/agent/converse?token=${apiKey}`);
+      const ws = new WebSocket(`wss://api.deepgram.com/v1/agent/converse?token=${key}`);
       
       ws.binaryType = 'arraybuffer';
 
@@ -446,8 +456,8 @@ export default function VoiceAgent() {
         <div className="flex justify-center mb-8">
           <motion.button
             onClick={connected ? disconnect : connect}
-            disabled={isConnecting || !apiKey}
-            className="relative px-8 py-4 rounded-full font-medium text-sm uppercase tracking-wider disabled:opacity-50"
+            disabled={isConnecting}
+            className="relative px-8 py-4 rounded-full font-medium text-sm uppercase tracking-wider"
             style={{
               background: connected 
                 ? 'rgba(239,68,68,0.9)' 
@@ -477,7 +487,7 @@ export default function VoiceAgent() {
             ) : (
               <span className="flex items-center gap-2">
                 <Mic className="w-4 h-4" />
-                {!apiKey ? 'Loading...' : 'Connect to King'}
+                Connect to King
               </span>
             )}
           </motion.button>
