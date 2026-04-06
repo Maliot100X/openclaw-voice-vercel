@@ -233,8 +233,8 @@ export default function VoiceAgent() {
       
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
-      // Connect to Deepgram Voice Agent API - auth in URL (browser WebSocket can't set headers)
-      const ws = new WebSocket(`wss://api.deepgram.com/v1/agent/converse?token=${key}`);
+      // Connect to YOUR Ubuntu server (handles Deepgram connection)
+      const ws = new WebSocket('wss://194.195.215.135:8000');
       
       ws.binaryType = 'arraybuffer';
 
