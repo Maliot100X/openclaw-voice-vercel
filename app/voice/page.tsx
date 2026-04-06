@@ -223,12 +223,8 @@ export default function VoiceAgent() {
       
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
-      // Connect to Deepgram Voice Agent API
-      const ws = new WebSocket('wss://api.deepgram.com/v1/agent/converse', [], {
-        headers: {
-          'Authorization': `Token ${apiKey}`
-        }
-      });
+      // Connect to Deepgram Voice Agent API - auth in URL (browser WebSocket can't set headers)
+      const ws = new WebSocket(`wss://api.deepgram.com/v1/agent/converse?token=${apiKey}`);
       
       ws.binaryType = 'arraybuffer';
 
