@@ -262,6 +262,17 @@ export default function VoiceAgent() {
         };
         ws.send(JSON.stringify(config));
 
+        // Send welcome message to trigger immediate voice response
+        setTimeout(() => {
+          const welcomeMsg = {
+            type: 'ConversationText',
+            role: 'user',
+            content: 'Say "OpenClaw Voice Online. I am ready to serve, King." and confirm you can hear me.'
+          };
+          ws.send(JSON.stringify(welcomeMsg));
+          addMessage('user', '[INIT] Wake up greeting');
+        }, 500);
+
         // Initialize audio context
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         if (!audioContextRef.current) {
@@ -402,16 +413,16 @@ export default function VoiceAgent() {
         style={{ backdropFilter: 'blur(10px)' }}
       >
         <p className="text-amber-200 text-sm">
-          ⚠️ First time? Click 
+          ⚠️ FIRST TIME? Click 
           <a 
             href="https://194.195.215.135:8000" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="underline font-bold mx-1"
+            className="underline font-bold mx-1 hover:text-amber-100"
           >
-            here to accept the SSL certificate
+            HERE TO ACCEPT CERT
           </a> 
-          then return and connect.
+          → Click "Advanced" → "Proceed" → Come back and click "Connect"
         </p>
       </div>
 
