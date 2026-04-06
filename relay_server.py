@@ -82,46 +82,17 @@ async def handle_connection(browser_ws):
         await browser_ws.close()
 
 async def main():
-    # Create SSL context with self-signed cert
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    
-    try:
-        ssl_context.load_cert_chain(
-            certfile='/etc/ssl/certs/selfsigned.crt',
-            keyfile='/etc/ssl/private/selfsigned.key'
-        )
-        print("Loaded existing SSL certificates")
-    except:
-        print("Generating new self-signed certificates...")
-        # Generate self-signed cert
-        import subprocess
-        subprocess.run([
-            'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
-            '-keyout', '/tmp/selfsigned.key',
-            '-out', '/tmp/selfsigned.crt',
-            '-days', '365', '-nodes',
-            '-subj', '/CN=194.195.215.135',
-            '-addext', 'subjectAltName=IP:194.195.215.135'
-        ], check=True)
-        
-        ssl_context.load_cert_chain(
-            certfile='/tmp/selfsigned.crt',
-            keyfile='/tmp/selfsigned.key'
-        )
-        print("Generated new SSL certificates")
-    
-    # Start WebSocket server
+    # Start WebSocket server WITHOUT SSL (cloudflared provides SSL)
     server = await websockets.serve(
         handle_connection,
         "0.0.0.0",
         8000,
-        ssl=ssl_context,
         ping_interval=20,
         ping_timeout=10
     )
     
     print(f"=== Deepgram Voice Agent Relay ===")
-    print(f"Listening on wss://194.195.215.135:8000")
+    print(f"Listening on ws://0.0.0.0:8000 (HTTP - cloudflared handles SSL)")
     print(f"Relaying to Deepgram Voice Agent")
     print(f"Press Ctrl+C to stop")
     print(f"==================================")
