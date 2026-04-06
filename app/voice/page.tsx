@@ -139,7 +139,9 @@ export default function VoiceAgent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [apiKey, setApiKey] = useState<string>('');
+  const [relayUrl, setRelayUrl] = useState<string>(
+    process.env.NEXT_PUBLIC_RELAY_URL || 'wss://leave-recorded-vernon-restructuring.trycloudflare.com'
+  );
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -161,22 +163,17 @@ export default function VoiceAgent() {
     setMessages(prev => [...prev, { role, content, timestamp }]);
   }, []);
 
-  // Get Deepgram API key from token endpoint with fallback
+  // Fetch the relay URL from the backend (allows env-var override on Vercel)
   useEffect(() => {
     fetch('/api/deepgram/token')
       .then(res => res.json())
       .then(data => {
-        if (data.token) {
-          setApiKey(data.token);
-        } else {
-          // Fallback to hardcoded key if endpoint fails
-          setApiKey('c6c917568bc52d1d679aa04e94a71defb240969f');
+        if (data.relay_url) {
+          setRelayUrl(data.relay_url);
         }
       })
       .catch(err => {
-        console.error('Failed to get token:', err);
-        // Fallback to hardcoded key
-        setApiKey('c6c917568bc52d1d679aa04e94a71defb240969f');
+        console.error('Failed to fetch relay URL:', err);
       });
   }, []);
 
@@ -217,13 +214,10 @@ export default function VoiceAgent() {
     nextPlayTimeRef.current = startAt + buf.duration;
   }, []);
 
-  // Connect to Deepgram Voice Agent API directly
+  // Connect to Deepgram Voice Agent via relay server
   const connect = useCallback(async () => {
-    // Use provided key or fallback
-    const key = apiKey || 'c6c917568bc52d1d679aa04e94a71defb240969f';
-    
-    if (!key) {
-      setError('API key not available');
+    if (!relayUrl) {
+      setError('Relay URL not available');
       return;
     }
 
@@ -234,7 +228,7 @@ export default function VoiceAgent() {
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
       // Connect to cloudflared tunnel (valid SSL) → Ubuntu relay → Deepgram
-      const ws = new WebSocket('wss://leave-recorded-vernon-restructuring.trycloudflare.com');
+      const ws = new WebSocket(relayUrl);
       
       ws.binaryType = 'arraybuffer';
 
@@ -386,7 +380,7 @@ export default function VoiceAgent() {
       setIsConnecting(false);
       addMessage('system', `Error: ${err.message}`);
     }
-  }, [addMessage, flushAudioQueue, listening, apiKey]);
+  }, [addMessage, flushAudioQueue, listening, relayUrl]);
 
   const disconnect = useCallback(() => {
     wsRef.current?.close();
@@ -407,22 +401,14 @@ export default function VoiceAgent() {
         fontFamily: 'Inter, sans-serif',
       }}
     >
-      {/* SSL Warning Banner */}
+      {/* Relay status banner */}
       <div 
-        className="bg-amber-500/20 border-b border-amber-500/30 px-4 py-3 text-center"
+        className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-center"
         style={{ backdropFilter: 'blur(10px)' }}
       >
-        <p className="text-amber-200 text-sm">
-          ⚠️ FIRST TIME? Click 
-          <a 
-            href="https://leave-recorded-vernon-restructuring.trycloudflare.com" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="underline font-bold mx-1 hover:text-amber-100"
-          >
-            HERE TO ACCEPT CERT
-          </a> 
-          → Click "Advanced" → "Proceed" → Come back and click "Connect"
+        <p className="text-amber-300/70 text-xs tracking-wide">
+          Relay: <span className="font-mono text-amber-200/80">{relayUrl.replace('wss://', '')}</span>
+          {' '} — Cloudflare Tunnel (SSL)
         </p>
       </div>
 

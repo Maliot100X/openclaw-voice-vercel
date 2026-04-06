@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  // Try env var first, fallback to provided key
-  const key = process.env.DEEPGRAM_API_KEY || "c6c917568bc52d1d679aa04e94a71defb240969f";
-
-  if (!key) {
-    return NextResponse.json({ error: "Deepgram API key not configured" }, { status: 500 });
-  }
+  // Return the relay tunnel URL so the frontend knows where to connect.
+  // The Deepgram API key is ONLY used server-side in relay_server.py --
+  // we never send it to the browser.
+  const relayUrl =
+    process.env.NEXT_PUBLIC_RELAY_URL ||
+    "wss://leave-recorded-vernon-restructuring.trycloudflare.com";
 
   return NextResponse.json({
-    key,
-    websocket_url: "wss://agent.deepgram.com/v1/agent/converse",
+    relay_url: relayUrl,
     features: { stt: true, tts: true, voice_agent: true },
   });
 }
