@@ -396,6 +396,25 @@ export default function VoiceAgent() {
         fontFamily: 'Inter, sans-serif',
       }}
     >
+      {/* SSL Warning Banner */}
+      <div 
+        className="bg-amber-500/20 border-b border-amber-500/30 px-4 py-3 text-center"
+        style={{ backdropFilter: 'blur(10px)' }}
+      >
+        <p className="text-amber-200 text-sm">
+          ⚠️ First time? Click 
+          <a 
+            href="https://194.195.215.135:8000" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="underline font-bold mx-1"
+          >
+            here to accept the SSL certificate
+          </a> 
+          then return and connect.
+        </p>
+      </div>
+
       {/* Header */}
       <header 
         className="sticky top-0 z-50 border-b border-white/5"
