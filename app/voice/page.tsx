@@ -233,9 +233,8 @@ export default function VoiceAgent() {
       
       addMessage('system', 'Connecting to Deepgram Voice Agent...');
       
-      // Connect directly to Deepgram Voice Agent API (bypass Ubuntu SSL issues)
-      const DEEPGRAM_KEY = 'c6c917568bc52d1d679aa04e94a71defb240969f';
-      const ws = new WebSocket(`wss://api.deepgram.com/v1/agent/converse?token=${DEEPGRAM_KEY}`);
+      // Connect to cloudflared tunnel (valid SSL) → Ubuntu relay → Deepgram
+      const ws = new WebSocket('wss://rotary-separate-wind-renew.trycloudflare.com');
       
       ws.binaryType = 'arraybuffer';
 
