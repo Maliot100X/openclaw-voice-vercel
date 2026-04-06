@@ -44,7 +44,7 @@ async def relay_deepgram_to_browser(deepgram_ws, browser_ws):
     except Exception as e:
         print(f"Deepgram→Browser error: {e}")
 
-async def handle_connection(browser_ws, path):
+async def handle_connection(browser_ws):
     """Handle a new browser connection"""
     client_ip = browser_ws.remote_address[0] if browser_ws.remote_address else "unknown"
     print(f"[{client_ip}] Browser connected")
