@@ -22,9 +22,9 @@ DEEPGRAM_API_KEY = os.environ.get(
     "DEEPGRAM_API_KEY",
     "c6c917568bc52d1d679aa04e94a71defb240969f",
 )
-DEEPGRAM_WS_URL = (
-    f"wss://api.deepgram.com/v1/agent/converse?token={DEEPGRAM_API_KEY}"
-)
+# Deepgram Voice Agent WebSocket endpoint (no token in URL -- we use headers)
+DEEPGRAM_WS_URL = "wss://agent.deepgram.com/agent"
+DEEPGRAM_EXTRA_HEADERS = {"Authorization": f"Token {DEEPGRAM_API_KEY}"}
 PORT = int(os.environ.get("RELAY_PORT", "8000"))
 
 # ---------------------------------------------------------------------------
@@ -81,6 +81,7 @@ async def handle_connection(browser_ws):
         print(f"[{client_ip}] Connecting to Deepgram...")
         deepgram_ws = await websockets.connect(
             DEEPGRAM_WS_URL,
+            extra_headers=DEEPGRAM_EXTRA_HEADERS,
             ping_interval=20,
             ping_timeout=10,
         )
